@@ -1,0 +1,1 @@
+/home/costa/pkg/Dropbox/pkg/rust/update.sh
