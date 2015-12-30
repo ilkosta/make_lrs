@@ -3,55 +3,60 @@
 ########################################################
 # https://github.com/lrs-lang/lib/blob/master/Documentation/adoc/building_and_using.adoc
 ########################################################
-NIGHTLY=$(wget -o /dev/null -O - https://raw.githubusercontent.com/lrs-lang/lib/master/VERSION.adoc | grep X86_64_NIGHTLY | awk '{print $2}')
-FNAME=rust-nightly-x86_64-unknown-linux-gnu.tar.gz
+
+function get_rustc_url () {
+	echo $(wget -o /dev/null -O - https://raw.githubusercontent.com/lrs-lang/lib/master/VERSION.adoc | grep X86_64_NIGHTLY | awk '{print $2}')
+}
+
 pwd=$PWD
 
 # create pkg/new and pkg/actual dirs
 function prepare () {
-    mkdir -p $1/actual  # the actual version
-    mkdir -p $1/current # actual extracted
-    mkdir -p $1/new     # the last downloadable version
-    
-#    rm -rf $1/new/*     # clean the possible old downloaded version
+	mkdir -p $1/actual  # the actual version
+	mkdir -p $1/current # actual extracted
+	mkdir -p $1/new     # the last downloadable version
 }
 
 function update_compiler () {
-    COMP_DIR=$1
-
-    LAST=$(md5sum $COMP_DIR/new/$FNAME | awk '{print $1}')
-    PREV=$([ -e $COMP_DIR/actual/$FNAME ] && md5sum $COMP_DIR/actual/$FNAME | awk '{print $1}' || echo 0)
+	local COMP_DIR=$1
+	local NIGHTLY=$(get_rustc_url)
+	local FNAME=${NIGHTLY##*/}
+	local LAST=$(md5sum $COMP_DIR/new/$FNAME | awk '{print $1}')
+	local PREV=$([ -e $COMP_DIR/actual/$FNAME ] && md5sum $COMP_DIR/actual/$FNAME | awk '{print $1}' || echo 0)
     
-    if [ $LAST == $PREV ]
-    then
-        echo no rustc compiler update available
-        #rm -rf pkg/new/*
-    else
-        echo updating the rustc compiler
-        #mv $COMP_DIR/new/$FNAME $COMP_DIR/actual/$FNAME \
-        cp $COMP_DIR/new/$FNAME $COMP_DIR/actual/$FNAME \
-        && rm -rf $COMP_DIR/current/* \
-        && tar xzf $COMP_DIR/actual/$FNAME -C $COMP_DIR/current/ \
-        && cd $COMP_DIR/current/rust-nightly-x86_64-unknown-linux-gnu/ \
-        && sudo bash install.sh
-	res=$?
-        cd $pwd
-	return $res
-    fi
+	if [ $LAST == $PREV ]
+	then
+		echo no rustc compiler update available
+		#rm -rf pkg/new/*
+	else
+		echo updating the rustc compiler
+		#mv $COMP_DIR/new/$FNAME $COMP_DIR/actual/$FNAME \
+		cp $COMP_DIR/new/$FNAME $COMP_DIR/actual/$FNAME \
+		&& rm -rf $COMP_DIR/current/* \
+		&& tar xzf $COMP_DIR/actual/$FNAME -C $COMP_DIR/current/ \
+		&& cd $COMP_DIR/current/rust-nightly-x86_64-unknown-linux-gnu/ \
+		&& sudo bash install.sh
+		local res=$?
+		cd $pwd
+		return $res
+	fi
 }
 
 function download_compiler () {
-  COMP_DIR=pkg/compiler
-  prepare $COMP_DIR
-  wget -O $COMP_DIR/new/$FNAME -c $NIGHTLY
+	local COMP_DIR=pkg/compiler
+	local NIGHTLY=$(get_rustc_url)
+	local FNAME=${NIGHTLY##*/}
+	
+	prepare $COMP_DIR
+	wget -O $COMP_DIR/new/$FNAME -c $NIGHTLY
 
-  update_compiler $COMP_DIR
-  
+	update_compiler $COMP_DIR
+
 }
 
 function update_repo () {
-    REPO_URL=$1
-    REPO_DIR=$2
+    local REPO_URL=$1
+    local REPO_DIR=$2
     
     mkdir -p $(dirname $REPO_DIR)
     if [ -d $REPO_DIR ]
@@ -71,13 +76,13 @@ function compile_driver () {
 	echo "compiling the driver ..."
   update_repo https://github.com/lrs-lang/driver.git repo/driver && \
   cd repo/driver && make && \
-  rustc_dir=$(dirname $(which rustc)) && \
+  local rustc_dir=$(dirname $(which rustc)) && \
   sudo install lrsc $rustc_dir/ 
   print_result "driver lsr installation"
 }
 
 function print_result () {
-	res=$?
+	local res=$?
 	cd $pwd
 	echo -n "$@: "
 	test $res && echo OK || echo KO!
@@ -133,8 +138,9 @@ function run_tests () {
 
 
 download_compiler && \
-update_repo https://github.com/lrs-lang/lib.git $pwd/repo/lrs/lib && \
-export LRS_OBJ_PATH=$(realpath $REPO_DIR)/obj && \
+LRS_DIR=$pwd/repo/lrs/lib && \
+update_repo https://github.com/lrs-lang/lib.git $LRS_DIR && \
+export LRS_OBJ_PATH=$(realpath $LRS_DIR)/obj && \
 echo "LRS_OBJ_PATH = $LRS_OBJ_PATH" && \
 compile_driver && \
 build_comp_plugins && \
