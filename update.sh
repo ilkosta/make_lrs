@@ -54,27 +54,11 @@ function download_compiler () {
 
 }
 
-function update_repo () {
-    local REPO_URL=$1
-    local REPO_DIR=$2
-    
-    mkdir -p $(dirname $REPO_DIR)
-    if [ -d $REPO_DIR ]
-    then
-	echo "updating $REPO_DIR ..."
-        cd $REPO_DIR
-        git pull
-        cd -
-    else
-	echo "downloading repository $REPO_URL to $REPO_DIR ..."
-        git clone $REPO_URL $REPO_DIR
-    fi
-}
 
 
 function compile_driver () {
 	echo "compiling the driver ..."
-  update_repo https://github.com/lrs-lang/driver.git repo/driver && \
+  ./update_repo.sh https://github.com/lrs-lang/driver.git repo/driver && \
   cd repo/driver && make && \
   local rustc_dir=$(dirname $(which rustc)) && \
   sudo install lrsc $rustc_dir/ 
@@ -122,7 +106,7 @@ function build_libtest () {
 }
 
 function build_builder () {
-	update_repo https://github.com/lrs-lang/build.git repo/build
+	./update_repo.sh https://github.com/lrs-lang/build.git repo/build
 	echo 'try to make builder'
 	cd $pwd/repo/build && make
 	print_result make build
@@ -139,7 +123,7 @@ function run_tests () {
 
 download_compiler && \
 LRS_DIR=$pwd/repo/lrs/lib && \
-update_repo https://github.com/lrs-lang/lib.git $LRS_DIR && \
+./update_repo.sh https://github.com/lrs-lang/lib.git $LRS_DIR && \
 export LRS_OBJ_PATH=$(realpath $LRS_DIR)/obj && \
 echo "LRS_OBJ_PATH = $LRS_OBJ_PATH" && \
 compile_driver && \
